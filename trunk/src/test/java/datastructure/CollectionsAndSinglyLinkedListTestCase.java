@@ -24,13 +24,7 @@ public class CollectionsAndSinglyLinkedListTestCase extends TestCase {
 		SinglyLinkedList<Integer> other = list.clone();
 		other.reverse();
 		Collections.reverse(list);
-		Common.t(other, list);
-		
-		//try { Collections.reverse(list); fail(); }  catch (UnsupportedOperationException uoe) {}
-		//try { Collections.binarySearch(list, 134); fail();}  catch (UnsupportedOperationException uoe) {}
-		//try { Collections.indexOfSubList(list, sample); fail();} catch (UnsupportedOperationException uoe) {}
-		//try { Collections.lastIndexOfSubList(list, sample); fail();}  catch (UnsupportedOperationException uoe) {}	
-		//try { Collections.rotate(list, 44); fail();}  catch (UnsupportedOperationException uoe) {}		
+		Common.t(other, list);		
 	}
 	
 	
