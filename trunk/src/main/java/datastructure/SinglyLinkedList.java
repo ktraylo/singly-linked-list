@@ -255,9 +255,7 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	 * from the list in the range [head, last]
 	 * @param value the value to store
 	 * */
-	private Node<E> addNodeAfter(Node<E> after, E value, boolean checkForComodification) {
-		if(checkForComodification)
-			checkForComodification();
+	private Node<E> addNodeAfter(Node<E> after, E value) {
 		Node<E> n = new Node<E>(value, after.next);
 		after.next = n;
 		if(n.next == end())
@@ -273,7 +271,6 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	 * assumption is that {@code after} is a valid node in the range [ head, last )
 	 * */
 	private E removeTheNodeAfter(Node<E> after) {
-		checkForComodification();
 		Node<E> removed = after.next;
 		after.next = removed.next;
 		removed.next = null;
@@ -316,7 +313,8 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	 * @return {@code true}
 	 */
 	@Override public boolean add(E e) {
-		return addNodeAfter(tail.next, e, true) != null; 
+		checkForComodification();
+		return addNodeAfter(tail.next, e) != null; 
 	}
 	
 	/**
@@ -328,11 +326,12 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	 */
 	@Override public void add(int index, E value) {
 		if(checkRange(index, size()) == size()) {
-			add(value); // speedy appending
+			add(value); // speedy appending, will check for comodification
 		}
 		else {
+			checkForComodification();
 			Node<E> before = findNodeBefore(head, index);
-			addNodeAfter(before, value, true);
+			addNodeAfter(before, value);
 		}
 	}
 
@@ -350,7 +349,7 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 		boolean hasChanged = false;
 		checkForComodification();
 		for(E e : c) {
-			insertAfter = addNodeAfter(insertAfter, e, false);
+			insertAfter = addNodeAfter(insertAfter, e);
 			hasChanged = true;
 		}
 		return hasChanged;		
@@ -463,7 +462,7 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 		
 		@Override public void add(E e) {
 			checkForComodification();			
-			addNodeAfter(current, e, false);
+			addNodeAfter(current, e);
 			previous = current;
 			current = current.next;
 			++nextIndex;
