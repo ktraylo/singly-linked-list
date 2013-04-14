@@ -74,7 +74,7 @@ public class Common {
 			m.invoke(o, arg);
 		}
 		catch (InvocationTargetException ite) { 
-			t(ite.getCause().getClass() == expected); 
+			Assert.assertSame(ite.getCause().getClass(), expected);			
 		} 
 		catch (Exception e) {
 			throw new RuntimeException("reflection invocation failed", e);
