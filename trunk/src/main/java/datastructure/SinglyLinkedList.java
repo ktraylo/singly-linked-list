@@ -379,7 +379,7 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
      * @return {@inheritDoc}
      */ 	
 	@Override public ListIterator<E> listIterator() {		
-		return new ForwardOnlyIterator(0);
+		return new ForwardOnlyIterator(0, true);
 	}
 
 	 /**
@@ -399,7 +399,7 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
      *         {@code (index < 0 || index > size())}
      */ 	
 	@Override public ListIterator<E> listIterator(int fromIndex) {
-		return new ForwardOnlyIterator(fromIndex);
+		return new ForwardOnlyIterator(fromIndex, true);
 	}
 	
 	/** implements just the minimum set of forward iteration methods */
@@ -408,21 +408,29 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 		Node<E> previous = head;
 		Node<E> current = head; // current == previous means next() has not been invoked
 		int expectedModCount = modCount;
-		int nextIndex = 0; 
+		int nextIndex = 0;
+		// If the list must be intendedly modified simultaneously by more
+		// than one iterator (merge sort), co-modification awareness must
+		// be switched off. Otherwise modifications through the different iterators
+		// will be raising ConcurrentModificationException 
+		final boolean trackComodification; 		
 		
-		ForwardOnlyIterator(int fromIndex) {
-			checkRange(fromIndex, size());			
+		ForwardOnlyIterator(final int fromIndex, final boolean doTrackComodification) {
+			checkRange(fromIndex, size());
+			trackComodification = doTrackComodification;
 			for(int i = 0; i < fromIndex; ++i)
 				next();
 		}		
 
-		void checkForComodification() { 
-			SinglyLinkedList.this.checkForComodification(); // make sure parent and grandparents
-			if(expectedModCount != modCount) {              // are Ok with this modification too
-				throw new ConcurrentModificationException(
-					"iterator has a different modcount " + expectedModCount 
-					+ " from parent: " + parent.modCount				
-				);
+		void checkForComodification() {
+			if(trackComodification) {
+				SinglyLinkedList.this.checkForComodification(); // make sure parent and grandparents
+				if(expectedModCount != modCount) {              // are Ok with this modification too
+					throw new ConcurrentModificationException(
+						"iterator has a different modcount " + expectedModCount 
+						+ " from parent: " + parent.modCount				
+					);
+				}
 			}
 		}
 				
