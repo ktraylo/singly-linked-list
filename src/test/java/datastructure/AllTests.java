@@ -21,7 +21,7 @@ public class AllTests {
 		suite.addTestSuite(EmptySinglyLinkedListSublistTestCase.class);
 		suite.addTestSuite(SingleLinkedListTestCase.class);
 		suite.addTestSuite(SublistSingleLinkedListTestCase.class);
-		suite.addTestSuite(CucaTestCase.class);
+		suite.addTestSuite(MergeSortTestCase.class);
 		//$JUnit-END$
 		return suite;
 	}
