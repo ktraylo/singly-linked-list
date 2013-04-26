@@ -57,7 +57,7 @@ public class CucaTestCase extends TestCase {
 		SinglyLinkedList<Integer> one = list.subList(0, list.size() / 2);
 		SinglyLinkedList<Integer> two = list.subList(2, list.size());
 		//merge(two.forwardOnlyIterator(), one.forwardOnlyIterator());
-		merge(one.forwardOnlyIterator(), two.forwardOnlyIterator());
+		//merge(one.forwardOnlyIterator(), two.forwardOnlyIterator());
 				
 		out("The list:");
 		for(Integer i : list)
