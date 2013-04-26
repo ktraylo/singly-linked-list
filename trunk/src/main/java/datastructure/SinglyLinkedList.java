@@ -10,6 +10,7 @@ import java.util.AbstractSequentialList;
 import java.util.AbstractList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.List;
@@ -68,6 +69,9 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 			this.e = e;
 			this.next = next;
 		}
+		@Override public String toString() { // to facilitate debugging
+			return e + " -> " + (next == null ? "next is null" : next.e );
+		}
 	}
 	
 	transient private int modCount = 0; // to intercept concurrent modifications
@@ -76,6 +80,7 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	transient private final Node<E> end;  // List's last element always points to 'end'. 
 	                                      // As the same implementation is used to implement sublists a
 										  // sentinel reference to hold the end of the list is required.
+	
 	transient private final Node<E> tail; // points to the last element in the list to speed up operation "append"
 	transient private SinglyLinkedList<E> parent = this; // if this is a sublist, keeps a reference to the parent list
 		
@@ -148,9 +153,9 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	public SinglyLinkedList() {
 		head = new Node<E>(null, null);
 		tail = new Node<E>(null, null);
-		end = head;		
-		head.next = end;
-		tail.next = head;		
+		end = head;		  
+		head.next = end;  // because begin() always points to the first and when list's empty begin() == end()
+		tail.next = head; // because teail.next == last() is always the node before the "end"	
 		size = 0;
 	}
 	
@@ -254,13 +259,14 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	 * @param after the node to insert after, assumption is that this is a valid node
 	 * from the list in the range [head, last]
 	 * @param value the value to store
+	 * @return reference to the added element
 	 * */
 	private Node<E> addNodeAfter(Node<E> after, E value) {
 		Node<E> n = new Node<E>(value, after.next);
 		after.next = n;
-		if(n.next == end())
-			tail.next = n;
-		changeSize(+1);
+		if(n.next == end()) // is "n" the new last node?
+			tail.next = n; // tail is not a proper element of the list
+		changeSize(+1);    // and must be manually updated
 		incrementModCount();
 		return n;
 	}
@@ -305,6 +311,59 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 		}
 		return this;
 	}
+	
+	
+	
+	
+	public SinglyLinkedList<E> sort() {
+		return sort( new Comparator<E>() {					
+						 @SuppressWarnings("unchecked") 
+						 @Override public int compare(E o1, E o2) {
+							 return ((Comparable)o1).compareTo(o2);
+						 }
+					 });
+	}
+	
+	public SinglyLinkedList<E> sort(Comparator<E> compir) {
+		checkForComodification();
+		mergeSort(this.head, this.tail, size(), compir);
+		incrementModCount();
+		return this;		
+	}
+	
+	private <T> 
+	void mergeSort(Node<T> h, Node<T> t, int len, Comparator<T> comp) {
+		if(len > 1) {
+			final int m = len / 2;
+			final Node<T> t1 = new Node<T>(null, findNodeBefore(h, m)); // need a full blown Node in order to change where it refers to
+			mergeSort(h, t1, m, comp);
+			mergeSort(t1.next, t, len - m, comp);
+			merge(h, t1, t1.next, t, comp);
+		}
+	}
+
+	private <T> 
+	void merge(Node<T> h1, Node<T> t1, Node<T> h2, Node<T> t2, Comparator<T> comp) {
+		boolean atEndOfList1 = (t1.next == h1) // hmmm is not the condition for 
+		      , atEndOfList2 = (t2.next == h2); // empty list == to the one of non empty list?
+		while(!atEndOfList1 && !atEndOfList2) {
+			if(comp.compare(h1.next.e, h2.next.e) <= 0) { // keep looking for insert position
+				atEndOfList1 = (t1.next == h1.next);
+				if(!atEndOfList1)
+					h1 = h1.next;
+			}
+			else { // insert at found position
+				atEndOfList2 = (t2.next == h2.next);
+				Node<T> unlinked = h2.next; // unlink from second list
+				h2.next = unlinked.next;
+				unlinked.next = h1.next;    // link/insert into first list
+				h1.next = unlinked;
+				if(atEndOfList2) // as tail is not a proper element from the list, it must be manually updated
+					t2.next = h2; // the new last element. Basically the second list was emptied
+			}
+		}
+	}
+	
 	
 	/**
 	 * Appends the argument to the end of the list.
@@ -364,6 +423,7 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
      */	
 	@Override public E remove(int index) {
 		checkRange(index, size() - 1);
+		checkForComodification();
 		Node<E> beforeNode = findNodeBefore(head, index);
 		return removeTheNodeAfter(beforeNode);
 	}	
@@ -402,10 +462,14 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 		return new ForwardOnlyIterator(fromIndex, true);
 	}
 	
+	ForwardOnlyIterator forwardOnlyIterator() {
+		return new ForwardOnlyIterator(0, false);
+	}
+	
 	/** implements just the minimum set of forward iteration methods */
-	final private class ForwardOnlyIterator implements ListIterator<E> {
+	final class ForwardOnlyIterator implements ListIterator<E> {
 
-		Node<E> previous = head;
+		Node<E> previous = head; // previous is used for to enable removal of node pointed bu current
 		Node<E> current = head; // current == previous means next() has not been invoked
 		int expectedModCount = modCount;
 		int nextIndex = 0;
@@ -434,20 +498,9 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 			}
 		}
 				
-		@Override public boolean hasNext() { return current.next != end(); }
-				
-		@Override public E next() {
-			checkForComodification();
-			if(nextIndex == size()) {
-				throw new NoSuchElementException("list size: " + size 
-						                       + " currentindex = " + nextIndex);
-			}
-			previous = current;
-			current = current.next;
-			++nextIndex;
-			return current.e;
-		}
-
+		//@Override public boolean hasNext() { return current.next != end(); }
+		@Override public boolean hasNext() { return nextIndex != size(); }
+		
 		@Override public int nextIndex() { return nextIndex; }
 
 		@Override public void set(E e) {
@@ -473,9 +526,40 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 			addNodeAfter(current, e);
 			previous = current;
 			current = current.next;
-			++nextIndex;
+			++nextIndex; //increment because the number of elements before the next element has just increased
 			++expectedModCount;
 		}		
+		
+		// helper method for the merge sort algorithm. Inserts an element
+		// before the current element. The element that next() must return
+		// after this method, should be the same element that the method
+		// would return had the insertion not have happened. Thus multiple
+		// consequtive inserts will happen in the right place
+		void insertBefore(E e) {
+			addNodeAfter(previous, e);
+			if(current == previous) // next() has not been invoked yet (fresh new iterator or after remove command)
+				current = current.next; 
+			previous = previous.next;
+			++nextIndex; //increment because the number of elements before the next element has just increased
+		    ++expectedModCount; // not needed
+		}		
+		
+		E current() { return current.e; }
+		
+		E currentNext() { return current.next.e; }
+		
+		@Override public E next() {
+			checkForComodification();
+			if(nextIndex == size) {
+				throw new NoSuchElementException("list size: " + size 
+						                       + " currentindex = " + nextIndex);
+			}
+			previous = current;
+			current = current.next;
+			++nextIndex;
+			return current.e;
+		}		
+		
 		@Override public boolean hasPrevious() { throw new UnsupportedOperationException(); }
 
 		@Override public E previous() {	 throw new UnsupportedOperationException(); }
@@ -535,6 +619,7 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 		if(len < 0) {
 			throw new IndexOutOfBoundsException("toIndex " + toIndex + " must be >= fromIndex " + fromIndex);
 		}
+		checkForComodification();
 		Node<E> h = findNodeBefore(head, fromIndex); // the head of the sublist
 		Node<E> last = findNodeBefore(h, len);       // the last element in the sublist
 		Node<E> sTail = (tail.next != last ? new Node<E>(null, last) : tail);
@@ -549,9 +634,9 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 		this.parent = parent;
 		this.modCount = parent.modCount;
 	}
+
 	
-	private Node<E> findNodeBefore(Node<E> start, int index) {		
-		checkForComodification();
+	private static <T> Node<T> findNodeBefore(Node<T> start, int index) {		
 		while(index-- > 0) 
 			start = start.next;		
 		return start;
