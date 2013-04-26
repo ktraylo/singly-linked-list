@@ -3,7 +3,6 @@ package datastructure;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.ListIterator;
 
 
 import junit.framework.TestCase;
@@ -19,7 +18,8 @@ public class CollectionsAndSinglyLinkedListTestCase extends TestCase {
 		for(int i = 0; i < 10000; ++i)
 			list.add(i);
 	}
-		
+	
+	
 	public void testReverse() {
 		SinglyLinkedList<Integer> other = list.clone();
 		other.reverse();
