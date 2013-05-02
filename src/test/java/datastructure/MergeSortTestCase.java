@@ -4,10 +4,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.ConcurrentModificationException;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Random;
 
 import junit.framework.TestCase;
-import static datastructure.Common.t;
+import static datastructure.Common.*;
 
 public class MergeSortTestCase extends TestCase {
 
@@ -55,6 +57,38 @@ public class MergeSortTestCase extends TestCase {
 			fail();
 		}
 		catch (NullPointerException expected) {}
+	}
+	
+	public void testPerformance() {
+		LinkedList<Integer> dlist = new LinkedList<Integer>();
+		populate(dlist, 100000);
+		SinglyLinkedList<Integer> slist = new SinglyLinkedList<Integer>(dlist);
+		ArrayList<Integer> alist = new ArrayList<Integer>(dlist);
+		long now = System.nanoTime();
+		Collections.sort(dlist);
+		now = System.nanoTime() - now;
+		out("dlist time:" + now / 1000 / 1000);
+		//
+		now = System.nanoTime();
+		slist.sort();		
+		now = System.nanoTime() - now;
+		out("slist time:" + (now / 1000 / 1000));		
+		//dump(slist);
+		//dump(dlist);
+		now = System.nanoTime();
+		Collections.sort(alist);		
+		now = System.nanoTime() - now;
+		out("alist time:" + (now / 1000 / 1000));		
+
+		
+		t(slist, dlist);
+		
+	}
+
+	void populate(List<Integer> list, final int size) {
+		Random r = new Random();
+		for(int i = 0; i < size; ++i)
+			list.add(r.nextInt());
 	}
 	
 }

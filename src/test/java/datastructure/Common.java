@@ -113,7 +113,14 @@ public class Common {
 	}
 
 	@SuppressWarnings("unused")
-	private static void out(Object o) {
+	static void out(Object o) {
 		System.out.println(o);
 	}	
+	
+	static void dump(List<?> list) {
+		for(Object e : list) {
+			System.out.print(e + ", ");
+		}
+		out("");
+	}
 }
