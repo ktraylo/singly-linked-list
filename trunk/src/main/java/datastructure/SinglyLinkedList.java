@@ -314,16 +314,42 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	
 	
 	
-	
+	/**
+	 * Sorts the list according to their natural order, using   
+	 * <a href="http://www.sorting-algorithms.com/merge-sort">merge sort algorithm</a> 
+	 * <p>
+	 * Properties:
+	 * <li>stable sort
+	 * <li>lg(n) recursion stack depth
+	 * <li>n * lg(n) running time
+	 * <p>
+	 * Assumption: {@code E implements Comparable>
+	 * @param compir the comparator to order the elements
+	 * @return the sorted list for chaining
+	 * @throws ClassCastException when elements of the list
+	 * are not {@link Comparable}
+	 */
 	public SinglyLinkedList<E> sort() {
 		return sort( new Comparator<E>() {					
 						 @SuppressWarnings("unchecked") 
-						 @Override public int compare(E o1, E o2) {
+						 @Override public int compare(final E o1, final E o2) {
 							 return ((Comparable)o1).compareTo(o2);
 						 }
 					 });
 	}
-	
+
+	/**
+	 * Sorts the list as ordered by the {@code compir}, using   
+	 * <a href="http://www.sorting-algorithms.com/merge-sort">merge sort algorithm</a> 
+	 * <p>
+	 * Properties
+	 * <li>stable sort
+	 * <li>lg(n) recursion stack depth
+	 * <li>n * lg(n) running time
+	 * 
+	 * @param compir the comparator to order the elements
+	 * @return the sorted list for chaining
+	 */	
 	public SinglyLinkedList<E> sort(Comparator<E> compir) {
 		checkForComodification();
 		mergeSort(this.head, this.tail, size(), compir);
@@ -332,20 +358,29 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	}
 	
 	private <T> 
-	void mergeSort(Node<T> h, Node<T> t, int len, Comparator<T> comp) {
+	void mergeSort(final Node<T> h, final Node<T> t, final int len, final Comparator<T> comp) {
 		if(len > 1) {
 			final int m = len / 2;
 			final Node<T> t1 = new Node<T>(null, findNodeBefore(h, m)); // need a full blown Node in order to change where it refers to
 			mergeSort(h, t1, m, comp);
 			mergeSort(t1.next, t, len - m, comp);
-			merge(h, t1, t1.next, t, comp);
+			if(comp.compare(t1.next.e, t1.next.next.e) > 0) // skip merging if already ordered
+				merge(h, t1, t1.next, t, comp);
 		}
 	}
 
+	// The last element of the first list is head element of the second, 
+	// and the first element of the second list is the end() element of the first list.
+	// The end() sentinel node cannot be used for end-of-list checks, 
+	// as during merging, the first element of the second list (the end() of the first list)
+	// can be merged somewhere into the first list, thus losing forever the sentinel 
+	// value / meaning. Therefore the lists must
+	// be designated as [head, tail] rather than [head, end)
 	private <T> 
 	void merge(Node<T> h1, Node<T> t1, Node<T> h2, Node<T> t2, Comparator<T> comp) {
 		boolean atEndOfList1 = (t1.next == h1) // hmmm is not the condition for 
 		      , atEndOfList2 = (t2.next == h2); // empty list == to the one of non empty list?
+		//assert !atEndOfList1 && !atEndOfList2 : "should never happen";
 		while(!atEndOfList1 && !atEndOfList2) {
 			if(comp.compare(h1.next.e, h2.next.e) <= 0) { // keep looking for insert position
 				atEndOfList1 = (t1.next == h1.next);
