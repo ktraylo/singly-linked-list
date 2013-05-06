@@ -8,6 +8,7 @@ import java.io.Serializable;
 import java.util.AbstractSequentialList;
 
 import java.util.AbstractList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  * Singly linked implementation of the {@link List} interface.
@@ -356,47 +358,118 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 		incrementModCount();
 		return this;		
 	}
+		
+	public SinglyLinkedList<E> parallelSort() {
+		return parallelSort( 
+			new Comparator<E>() {					
+				 @SuppressWarnings("unchecked") 
+				 @Override public int compare(final E o1, final E o2) {
+					 return ((Comparable)o1).compareTo(o2);
+				 }
+			}
+		);
+	}
+	
+	public SinglyLinkedList<E> parallelSort(final Comparator<E> compir) {
+		checkForComodification();
+		ForkJoinPool pooly = new ForkJoinPool();
+		pooly.invoke(new MergeSorter<E>(this.head, this.tail, size(), compir));
+		incrementModCount();
+		pooly.shutdown();
+		return this;		
+	}
+	
+	
+	private class MergeSorter<T> extends java.util.concurrent.RecursiveAction {
+				
+		private static final long serialVersionUID = 1L;
+
+		private static final int THRESHOLD = 10000;
+		
+		final Node<T> h; final Node<T> t; final int len; final Comparator<T> comp;
+				
+		MergeSorter(final Node<T> h, final Node<T> t, final int len, final Comparator<T> comp) {
+			this.h = h; this.t = t; this.len = len; this.comp = comp;
+		}
+		
+		@Override
+		protected void compute() {
+			if(len > THRESHOLD) {
+				final Node<T> originalEnd = t.next.next; // in case this is a sublist, end() != head
+				final int m = len / 2;
+				// Detach list1 from list2 to divide and concur in parallel
+				// list1 requires a new tail and end , list2 a new head 
+				final Node<T> t1 = new Node<T>(null, findNodeBefore(h, m)); 
+				final Node<T> h2 = new Node<T>(null, t1.next.next);
+				t1.next.next = h; // the new end1, end() is always the head unless it's a sublist
+				t.next.next = h2; // and new end2 -	but the originalEnd accounts for the sublist case
+				MergeSorter<T> left = new MergeSorter<T>(h, t1, m, comp); // fork
+				MergeSorter<T> right = new MergeSorter<T>(h2, t, len - m, comp); // fork				
+				invokeAll(left, right);
+				if(comp.compare(t1.next.e, h2.next.e) > 0) {
+					merge(h, t1, h2, t, comp);
+				}
+				if(t.next == h2) { //list2 is empty, just fix the tail
+					t.next = t1.next;
+				}
+				else { // re-attach list1 and list2
+					t1.next.next = h2.next;
+				}
+				t.next.next = originalEnd; // fix the end of the list
+			}
+			else {
+				mergeSort(h, t, len, comp);
+			}
+		}		
+	}
+	
 	
 	private <T> 
 	void mergeSort(final Node<T> h, final Node<T> t, final int len, final Comparator<T> comp) {
 		if(len > 1) {
+			final Node<T> originalEnd = t.next.next; // in case this is a sublist, end() != head
 			final int m = len / 2;
-			final Node<T> t1 = new Node<T>(null, findNodeBefore(h, m)); // need a full blown Node in order to change where it refers to
-			mergeSort(h, t1, m, comp);
-			mergeSort(t1.next, t, len - m, comp);
-			if(comp.compare(t1.next.e, t1.next.next.e) > 0) // skip merging if already ordered
-				merge(h, t1, t1.next, t, comp);
+			// Detach list1 from list2 to divide and concur in parallel
+			// list1 requires a new tail and end , list2 a new head 
+			final Node<T> t1 = new Node<T>(null, findNodeBefore(h, m)); 
+			final Node<T> h2 = new Node<T>(null, t1.next.next);
+			t1.next.next = h; // the new end1, end() is always the head unless it's a sublist
+			t.next.next = h2; // and new end2 -	but the originalEnd accounts for the sublist case
+			mergeSort(h, t1, m, comp); // fork
+			mergeSort(h2, t, len - m, comp); // fork
+			if(comp.compare(t1.next.e, h2.next.e) > 0) {
+				merge(h, t1, h2, t, comp);
+			}
+			if(t.next == h2) { //list2 is empty, just fix the tail
+				t.next = t1.next;
+			}
+			else { // re-attach list1 and list2
+				t1.next.next = h2.next;
+			}
+			t.next.next = originalEnd; // fix the end of the list
 		}
 	}
 
-	// The last element of the first list is head element of the second, 
-	// and the first element of the second list is the end() element of the first list.
-	// The end() sentinel node cannot be used for end-of-list checks, 
-	// as during merging, the first element of the second list (the end() of the first list)
-	// can be merged somewhere into the first list, thus losing forever the sentinel 
-	// value / meaning. Therefore the lists must
-	// be designated as [head, tail] rather than [head, end)
+	// merge in list1 the elements of list 2
 	private <T> 
 	void merge(Node<T> h1, Node<T> t1, Node<T> h2, Node<T> t2, Comparator<T> comp) {
-		boolean atEndOfList1 = (t1.next == h1) // hmmm is not the condition for 
-		      , atEndOfList2 = (t2.next == h2); // empty list == to the one of non empty list?
-		//assert !atEndOfList1 && !atEndOfList2 : "should never happen";
-		while(!atEndOfList1 && !atEndOfList2) {
+		// the head of the list is the end() sentinel always
+		final Node<T> e1 = h1, e2 = h2;
+		while(h1.next != e1 && h2.next != e2) {
 			if(comp.compare(h1.next.e, h2.next.e) <= 0) { // keep looking for insert position
-				atEndOfList1 = (t1.next == h1.next);
-				if(!atEndOfList1)
-					h1 = h1.next;
+				h1 = h1.next;
 			}
 			else { // insert at found position
-				atEndOfList2 = (t2.next == h2.next);
-				Node<T> unlinked = h2.next; // unlink from second list
+				final Node<T> unlinked = h2.next; // unlink from second list
 				h2.next = unlinked.next;
 				unlinked.next = h1.next;    // link/insert into first list
 				h1.next = unlinked;
-				if(atEndOfList2) // as tail is not a proper element from the list, it must be manually updated
-					t2.next = h2; // the new last element. Basically the second list was emptied
+				//
+				h1 = h1.next; // skip the newly attached list, as remaining elements of list2 are bigger than it.
 			}
 		}
+		if(h2.next == e2) // as tail is not a proper element from the list, it must be manually updated
+			t2.next = h2; // the new last element. Basically the second list was emptied
 	}
 	
 	
@@ -420,12 +493,11 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	 */
 	@Override public void add(int index, E value) {
 		if(checkRange(index, size()) == size()) {
-			add(value); // speedy appending, will check for comodification
+			add(value); // speedy appending, will check for co-modification
 		}
 		else {
 			checkForComodification();
-			Node<E> before = findNodeBefore(head, index);
-			addNodeAfter(before, value);
+			addNodeAfter(findNodeBefore(head, index), value);
 		}
 	}
 
@@ -459,8 +531,7 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	@Override public E remove(int index) {
 		checkRange(index, size() - 1);
 		checkForComodification();
-		Node<E> beforeNode = findNodeBefore(head, index);
-		return removeTheNodeAfter(beforeNode);
+		return removeTheNodeAfter(findNodeBefore(head, index));
 	}	
 	
 	
@@ -552,25 +623,7 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 			++nextIndex; //increment because the number of elements before the next element has just increased
 			++expectedModCount;
 		}		
-		
-		// helper method for the merge sort algorithm. Inserts an element
-		// before the current element. The element that next() must return
-		// after this method, should be the same element that the method
-		// would return had the insertion not have happened. Thus multiple
-		// consequtive inserts will happen in the right place
-		void insertBefore(E e) {
-			addNodeAfter(previous, e);
-			if(current == previous) // next() has not been invoked yet (fresh new iterator or after remove command)
-				current = current.next; 
-			previous = previous.next;
-			++nextIndex; //increment because the number of elements before the next element has just increased
-		    ++expectedModCount; // not needed
-		}		
-		
-		E current() { return current.e; }
-		
-		E currentNext() { return current.next.e; }
-		
+						
 		@Override public E next() {
 			checkForComodification();
 			if(nextIndex == size) {

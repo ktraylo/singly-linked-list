@@ -11,7 +11,7 @@ import java.util.Random;
 import junit.framework.TestCase;
 import static datastructure.Common.*;
 
-public class MergeSortTestCase extends TestCase {
+public class ParallelSortTestCase extends TestCase {
 
 	SinglyLinkedList<Integer> empty = new SinglyLinkedList<Integer>();
 	SinglyLinkedList<Integer> one = new SinglyLinkedList<Integer>(1);
@@ -30,12 +30,13 @@ public class MergeSortTestCase extends TestCase {
 	
 	public void testSort() {
 		/*
-		t(two.sort(), Arrays.asList(1, 2));
+		t(two.parallelSort(), Arrays.asList(1, 2));
 		t(two2.sort(), Arrays.asList(1, 2));
 		t(three.sort(), Arrays.asList(4, 4, 4));
 		t(sorted.sort(), Arrays.asList(1, 2, 3));
 		t(someList.sort(), Arrays.asList(1, 2, 3, 4, 1000));
 		*/
+		
 		for(SinglyLinkedList<Integer> list : allLists) {
 			List<Integer> copy = new ArrayList<Integer>(list);
 			Collections.sort(copy);
@@ -46,7 +47,7 @@ public class MergeSortTestCase extends TestCase {
 	public void testSublist() {
 		SinglyLinkedList<Integer> subway = someList.subList(1, 4);
 		t(subway.size() == 3);
-		t(subway.sort(), Arrays.asList(1, 2, 4));
+		t(subway.parallelSort(), Arrays.asList(1, 2, 4));
 		t(someList, Arrays.asList(1000, 1, 2, 4, 3));
 		//
 		SinglyLinkedList<Integer> sub2 = someList.subList(0, 1);
@@ -60,28 +61,31 @@ public class MergeSortTestCase extends TestCase {
 	
 	public void testNullPointer() {
 		try {
-			withNull.sort();
+			withNull.parallelSort();
 			fail();
 		}
 		catch (NullPointerException expected) {}
 	}
 
+	
+	private int MAXELS = 500000;
 	public void testPerformanceSlist() {
-		int[] raw = new int[900000];
+		int[] raw = new int[MAXELS];
 		populate(raw);
 		SinglyLinkedList<Integer> slist = new SinglyLinkedList<Integer>();
 		for(int i = 0; i < raw.length; ++i) slist.add(raw[i]);
 		
 		//
 		long now = System.nanoTime();
-		slist.sort();
+		slist.parallelSort();
 		now = System.nanoTime() - now;
-		out("slist time:" + (now / 1000 / 1000));		
+		out("slist time:" + (now / 1000 / 1000));	
+		out(Runtime.getRuntime().availableProcessors());
 	}
 	
 	
 	public void testPerformanceAlist() {
-		int[] raw = new int[1000000];
+		int[] raw = new int[MAXELS];
 		populate(raw);
 		ArrayList<Integer> alist = new ArrayList<Integer>(raw.length);
 		for(int i = 0; i < raw.length; ++i) alist.add(raw[i]);
@@ -94,7 +98,7 @@ public class MergeSortTestCase extends TestCase {
 	}
 	
 	public void testPerformanceDlist() {
-		int[] raw = new int[1000000];
+		int[] raw = new int[MAXELS];
 		populate(raw);
 		LinkedList<Integer> dlist = new LinkedList<Integer>();
 		for(int i = 0; i < raw.length; ++i) dlist.add(raw[i]);
