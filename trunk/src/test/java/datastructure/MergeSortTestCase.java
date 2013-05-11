@@ -43,7 +43,24 @@ public class MergeSortTestCase extends TestCase {
 		}
 	}
 	
-	public void testSublist() {
+	public void testParallelSort() {
+		/*
+		t(two.parallelSort(), Arrays.asList(1, 2));
+		t(two2.parallelSort(), Arrays.asList(1, 2));
+		t(three.parallelSort(), Arrays.asList(4, 4, 4));
+		t(sorted.parallelSort(), Arrays.asList(1, 2, 3));
+		t(someList.parallelSort(), Arrays.asList(1, 2, 3, 4, 1000));
+		*/
+		
+		for(SinglyLinkedList<Integer> list : allLists) {
+			List<Integer> copy = new ArrayList<Integer>(list);
+			Collections.sort(copy);
+			t(list.parallelSort(), copy);
+		}
+	}
+	
+	
+	public void testSublistSort() {
 		SinglyLinkedList<Integer> subway = someList.subList(1, 4);
 		t(subway.size() == 3);
 		t(subway.sort(), Arrays.asList(1, 2, 4));
@@ -56,7 +73,7 @@ public class MergeSortTestCase extends TestCase {
 			fail();
 		}
 		catch (ConcurrentModificationException expected) {}
-	}
+	}	
 	
 	public void testNullPointer() {
 		try {
@@ -66,8 +83,10 @@ public class MergeSortTestCase extends TestCase {
 		catch (NullPointerException expected) {}
 	}
 
+	final int SAMPLES = 300000;
+	
 	public void testPerformanceSlist() {
-		int[] raw = new int[900000];
+		int[] raw = new int[SAMPLES];
 		populate(raw);
 		SinglyLinkedList<Integer> slist = new SinglyLinkedList<Integer>();
 		for(int i = 0; i < raw.length; ++i) slist.add(raw[i]);
@@ -81,7 +100,7 @@ public class MergeSortTestCase extends TestCase {
 	
 	
 	public void testPerformanceAlist() {
-		int[] raw = new int[1000000];
+		int[] raw = new int[SAMPLES];
 		populate(raw);
 		ArrayList<Integer> alist = new ArrayList<Integer>(raw.length);
 		for(int i = 0; i < raw.length; ++i) alist.add(raw[i]);
@@ -92,9 +111,22 @@ public class MergeSortTestCase extends TestCase {
 		out("alist time:" + now / 1000 / 1000);
 		//
 	}
+
+	public void testPerformanceParallelSlist() {
+		int[] raw = new int[SAMPLES];
+		populate(raw);
+		SinglyLinkedList<Integer> slist = new SinglyLinkedList<Integer>();
+		for(int i = 0; i < raw.length; ++i) slist.add(raw[i]);
+		
+		//
+		long now = System.nanoTime();
+		slist.parallelSort();
+		now = System.nanoTime() - now;
+		out("parallel slist time:" + (now / 1000 / 1000));	
+	}
 	
 	public void testPerformanceDlist() {
-		int[] raw = new int[1000000];
+		int[] raw = new int[SAMPLES];
 		populate(raw);
 		LinkedList<Integer> dlist = new LinkedList<Integer>();
 		for(int i = 0; i < raw.length; ++i) dlist.add(raw[i]);
