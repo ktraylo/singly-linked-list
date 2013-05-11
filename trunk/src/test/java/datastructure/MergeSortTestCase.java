@@ -83,7 +83,7 @@ public class MergeSortTestCase extends TestCase {
 		catch (NullPointerException expected) {}
 	}
 
-	final int SAMPLES = 300000;
+	final int SAMPLES = 3000000;
 	
 	public void testPerformanceSlist() {
 		int[] raw = new int[SAMPLES];

@@ -412,8 +412,12 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	
 	public SinglyLinkedList<E> parallelSort(final Comparator<E> compir) {
 		checkForComodification();
+		if(size() < MergeSorter.MIN_THRESHOLD || Runtime.getRuntime().availableProcessors() <= 1) {
+			return this.sort(compir);
+		}
 		ForkJoinPool pooly = new ForkJoinPool();
-		pooly.invoke(new MergeSorter<E>(this.head, this.tail, size(), compir));
+		final int treshold = 1 + size() / ( 8 * Runtime.getRuntime().availableProcessors());
+		pooly.invoke(new MergeSorter<E>(this.head, this.tail, size(), compir, treshold));
 		incrementModCount();
 		pooly.shutdown();
 		return this;		
@@ -423,12 +427,15 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 				
 		private static final long serialVersionUID = 1L;
 
-		private static final int THRESHOLD = 10000;
+		private static final int MIN_THRESHOLD = 256; // as in java 8 Arrays.parallelSoft		
+		
+		private final int THRESHOLD;
 		
 		final Node<T> h; final Node<T> t; final int len; final Comparator<T> comp;
 				
-		MergeSorter(final Node<T> h, final Node<T> t, final int len, final Comparator<T> comp) {
+		MergeSorter(final Node<T> h, final Node<T> t, final int len, final Comparator<T> comp, final int treshold) {
 			this.h = h; this.t = t; this.len = len; this.comp = comp;
+			this.THRESHOLD = Math.max(MIN_THRESHOLD, treshold);
 		}
 		
 		@Override
@@ -442,8 +449,8 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 				final Node<T> h2 = new Node<T>(null, t1.next.next);
 				t1.next.next = h; // the new end1, end() is always the head unless it's a sublist
 				t.next.next = h2; // and new end2 -	but the originalEnd accounts for the sublist case
-				MergeSorter<T> left = new MergeSorter<T>(h, t1, m, comp); // fork
-				MergeSorter<T> right = new MergeSorter<T>(h2, t, len - m, comp); // fork				
+				MergeSorter<T> left = new MergeSorter<T>(h, t1, m, comp, THRESHOLD); 
+				MergeSorter<T> right = new MergeSorter<T>(h2, t, len - m, comp, THRESHOLD);				
 				invokeAll(left, right);
 				if(comp.compare(t1.next.e, h2.next.e) > 0) {
 					merge(h, t1, h2, t, comp);
