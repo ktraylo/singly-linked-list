@@ -25,7 +25,6 @@ public class MergeSortTestCase extends TestCase {
 	final static int SAMPLES = 1000000;
 
 	final static ArrayList<Integer> raw = populate(SAMPLES);
-
 	
 	@SuppressWarnings("unchecked")	
 	SinglyLinkedList<SinglyLinkedList<Integer>> allLists = new SinglyLinkedList<SinglyLinkedList<Integer>>(
