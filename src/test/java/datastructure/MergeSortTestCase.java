@@ -22,6 +22,10 @@ public class MergeSortTestCase extends TestCase {
 	SinglyLinkedList<Integer> someList = new SinglyLinkedList<Integer>(1000, 4, 2, 1, 3);
 	SinglyLinkedList<Integer> withNull = new SinglyLinkedList<Integer>(1000, null, 2, 1, 3);
 	
+	final static int SAMPLES = 3000000;
+
+	final static ArrayList<Integer> raw = populate(SAMPLES);
+
 	
 	@SuppressWarnings("unchecked")	
 	SinglyLinkedList<SinglyLinkedList<Integer>> allLists = new SinglyLinkedList<SinglyLinkedList<Integer>>(
@@ -82,15 +86,9 @@ public class MergeSortTestCase extends TestCase {
 		}
 		catch (NullPointerException expected) {}
 	}
-
-	final int SAMPLES = 3000000;
 	
-	public void testPerformanceSlist() {
-		int[] raw = new int[SAMPLES];
-		populate(raw);
-		SinglyLinkedList<Integer> slist = new SinglyLinkedList<Integer>();
-		for(int i = 0; i < raw.length; ++i) slist.add(raw[i]);
-		
+	public void testPerformanceslist() {
+		SinglyLinkedList<Integer> slist = new SinglyLinkedList<Integer>(raw);		
 		//
 		long now = System.nanoTime();
 		slist.sort();
@@ -100,11 +98,7 @@ public class MergeSortTestCase extends TestCase {
 	
 	
 	public void testPerformanceAlist() {
-		int[] raw = new int[SAMPLES];
-		populate(raw);
-		ArrayList<Integer> alist = new ArrayList<Integer>(raw.length);
-		for(int i = 0; i < raw.length; ++i) alist.add(raw[i]);
-		
+		ArrayList<Integer> alist = new ArrayList<Integer>(raw);		
 		long now = System.nanoTime();
 		Collections.sort(alist);
 		now = System.nanoTime() - now;
@@ -113,11 +107,7 @@ public class MergeSortTestCase extends TestCase {
 	}
 
 	public void testPerformanceParallelSlist() {
-		int[] raw = new int[SAMPLES];
-		populate(raw);
-		SinglyLinkedList<Integer> slist = new SinglyLinkedList<Integer>();
-		for(int i = 0; i < raw.length; ++i) slist.add(raw[i]);
-		
+		SinglyLinkedList<Integer> slist = new SinglyLinkedList<Integer>(raw);		
 		//
 		long now = System.nanoTime();
 		slist.parallelSort();
@@ -126,10 +116,7 @@ public class MergeSortTestCase extends TestCase {
 	}
 	
 	public void testPerformanceDlist() {
-		int[] raw = new int[SAMPLES];
-		populate(raw);
-		LinkedList<Integer> dlist = new LinkedList<Integer>();
-		for(int i = 0; i < raw.length; ++i) dlist.add(raw[i]);
+		LinkedList<Integer> dlist = new LinkedList<Integer>(raw);
 		
 		long now = System.nanoTime();
 		Collections.sort(dlist);		
@@ -137,10 +124,12 @@ public class MergeSortTestCase extends TestCase {
 		out("dlist time:" + (now / 1000 / 1000));		
 	}
 
-	void populate(int[] list) {
+	static ArrayList<Integer> populate(final int SAMPLES) {
+		ArrayList<Integer> list = new ArrayList<Integer>(SAMPLES);
 		Random r = new Random();
-		for(int i = 0; i < list.length; ++i)
-			list[i] = r.nextInt();
+		for(int i = 0; i < SAMPLES; ++i)
+			list.add(r.nextInt());
+		return list;
 	}
 	
 }
