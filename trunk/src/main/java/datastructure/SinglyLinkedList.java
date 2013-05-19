@@ -402,7 +402,7 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	public SinglyLinkedList<E> parallelSort() {
 		return parallelSort( 
 			new Comparator<E>() {					
-				 @SuppressWarnings("unchecked") 
+				 @SuppressWarnings({ "rawtypes", "unchecked" }) 
 				 @Override public int compare(final E o1, final E o2) {
 					 return ((Comparable)o1).compareTo(o2);
 				 }
@@ -449,9 +449,8 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 				final Node<T> h2 = new Node<T>(null, t1.next.next);
 				t1.next.next = h; // the new end1, end() is always the head unless it's a sublist
 				t.next.next = h2; // and new end2 -	but the originalEnd accounts for the sublist case
-				MergeSorter<T> left = new MergeSorter<T>(h, t1, m, comp, THRESHOLD); 
-				MergeSorter<T> right = new MergeSorter<T>(h2, t, len - m, comp, THRESHOLD);				
-				invokeAll(left, right);
+				invokeAll(new MergeSorter<T>(h, t1, m, comp, THRESHOLD)
+						, new MergeSorter<T>(h2, t, len - m, comp, THRESHOLD));
 				if(comp.compare(t1.next.e, h2.next.e) > 0) {
 					merge(h, t1, h2, t, comp);
 				}
@@ -468,11 +467,6 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 			}
 		}		
 	}
-	
-
-	
-	
-	
 	
 	/**
 	 * Appends the argument to the end of the list.
