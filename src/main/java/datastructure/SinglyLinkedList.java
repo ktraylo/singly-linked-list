@@ -378,23 +378,18 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	// value / meaning. Therefore the lists must
 	// be designated as [head, tail] rather than [head, end)
 	private <T> 
-	void merge(Node<T> h1, Node<T> t1, Node<T> h2, Node<T> t2, Comparator<T> comp) {
-		boolean atEndOfList1 = (t1.next == h1) // hmmm is not the condition for 
-		      , atEndOfList2 = (t2.next == h2); // empty list == to the one of non empty list?
-		while(!atEndOfList1 && !atEndOfList2) {
-			if(comp.compare(h1.next.e, h2.next.e) <= 0) { // keep looking for insert position
-				atEndOfList1 = (t1.next == h1.next);
-				if(!atEndOfList1)
-					h1 = h1.next;
-			}
-			else { // insert at found position
-				atEndOfList2 = (t2.next == h2.next);
-				Node<T> unlinked = h2.next; // unlink from second list
+	void merge(Node<T> h1, final Node<T> t1, Node<T> h2, Node<T> t2, final Comparator<T> comp) {
+		while(t1.next != h1 && t2.next != h2) {
+			if(comp.compare(h1.next.e, h2.next.e) > 0) { // insert at found position
+				final Node<T> unlinked = h2.next; // unlink from second list
 				h2.next = unlinked.next;
 				unlinked.next = h1.next;    // link/insert into first list
 				h1.next = unlinked;
-				if(atEndOfList2) // as tail is not a proper element from the list, it must be manually updated
+				if(t2.next == unlinked) // as tail is not a proper element from the list, it must be manually updated
 					t2.next = h2; // the new last element. Basically the second list was emptied
+			}
+			else { // keep looking for insert position			
+				h1 = h1.next;
 			}
 		}
 	}
