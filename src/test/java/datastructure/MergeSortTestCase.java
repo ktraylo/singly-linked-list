@@ -22,7 +22,7 @@ public class MergeSortTestCase extends TestCase {
 	SinglyLinkedList<Integer> someList = new SinglyLinkedList<Integer>(1000, 4, 2, 1, 3);
 	SinglyLinkedList<Integer> withNull = new SinglyLinkedList<Integer>(1000, null, 2, 1, 3);
 	
-	final static int SAMPLES = 3000000;
+	final static int SAMPLES = 1000000;
 
 	final static ArrayList<Integer> raw = populate(SAMPLES);
 
@@ -87,44 +87,74 @@ public class MergeSortTestCase extends TestCase {
 		catch (NullPointerException expected) {}
 	}
 	
-	public void testPerformanceslist() {
+	public void testPerformance() {
+		perf();
+		//
+		perf();
+	}
+
+	void perf() {
+		Runtime.getRuntime().gc();		
+		performanceDlist();		
+		Runtime.getRuntime().gc();		
+		performanceSlist();
+		Runtime.getRuntime().gc();		
+		performanceAlist();
+		Runtime.getRuntime().gc();		
+		performanceParallelSlist();		
+	}
+	
+	public void performanceSlist() {
 		SinglyLinkedList<Integer> slist = new SinglyLinkedList<Integer>(raw);		
 		//
 		long now = System.nanoTime();
 		slist.sort();
 		now = System.nanoTime() - now;
-		out("slist time:" + (now / 1000 / 1000));		
+		out("slist time:" + (now / 1000 / 1000));
+		if(slist.get(new java.util.Random().nextInt(SAMPLES)).hashCode() < 0) {
+			out("opaaaa");
+		}		
 	}
 	
 	
-	public void testPerformanceAlist() {
+	public void performanceAlist() {
 		ArrayList<Integer> alist = new ArrayList<Integer>(raw);		
 		long now = System.nanoTime();
 		Collections.sort(alist);
 		now = System.nanoTime() - now;
 		out("alist time:" + now / 1000 / 1000);
+		if(alist.get(new java.util.Random().nextInt(SAMPLES)).hashCode() < 0) {
+			out("opaaaa");
+		}
 		//
 	}
 
-	public void testPerformanceParallelSlist() {
+	public void performanceParallelSlist() {
 		SinglyLinkedList<Integer> slist = new SinglyLinkedList<Integer>(raw);		
 		//
 		long now = System.nanoTime();
 		slist.parallelSort();
 		now = System.nanoTime() - now;
-		out("parallel slist time:" + (now / 1000 / 1000));	
+		out("parallel slist time:" + (now / 1000 / 1000));
+		if(slist.get(new java.util.Random().nextInt(SAMPLES)).hashCode() < 0) {
+			out("opaaaa");
+		}		
 	}
 	
-	public void testPerformanceDlist() {
+	public void performanceDlist() {
 		LinkedList<Integer> dlist = new LinkedList<Integer>(raw);
 		
 		long now = System.nanoTime();
 		Collections.sort(dlist);		
 		now = System.nanoTime() - now;
-		out("dlist time:" + (now / 1000 / 1000));		
+		out("dlist time:" + (now / 1000 / 1000));
+		if(dlist.get(new java.util.Random().nextInt(SAMPLES)).hashCode() < 0) {
+			out("opaaaa");
+		}		
 	}
 
 	static ArrayList<Integer> populate(final int SAMPLES) {
+		out("populating baby!");
 		ArrayList<Integer> list = new ArrayList<Integer>(SAMPLES);
 		Random r = new Random();
 		for(int i = 0; i < SAMPLES; ++i)
