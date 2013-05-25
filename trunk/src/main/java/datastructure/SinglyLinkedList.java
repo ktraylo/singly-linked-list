@@ -18,6 +18,7 @@ import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.RecursiveAction;
 
 /**
  * Singly linked implementation of the {@link List} interface.
@@ -312,9 +313,7 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 		}
 		return this;
 	}
-	
-	
-	
+		
 	/**
 	 * Sorts the list according to their natural order, using   
 	 * <a href="http://www.sorting-algorithms.com/merge-sort">merge sort algorithm</a> 
@@ -358,10 +357,10 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 		return this;		
 	}
 	
-	private <T> 
+	static private <T> 
 	void mergeSort(final Node<T> h, final Node<T> t, final int len, final Comparator<T> comp) {
 		if(len > 1) {
-			final int m = len / 2;
+			final int m = len >>> 1;
 			final Node<T> t1 = new Node<T>(null, findNodeBefore(h, m)); // need a full blown Node in order to change where it refers to
 			mergeSort(h, t1, m, comp);
 			mergeSort(t1.next, t, len - m, comp);
@@ -377,8 +376,8 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	// can be merged somewhere into the first list, thus losing forever the sentinel 
 	// value / meaning. Therefore the lists must
 	// be designated as [head, tail] rather than [head, end)
-	private <T> 
-	void merge(Node<T> h1, final Node<T> t1, Node<T> h2, Node<T> t2, final Comparator<T> comp) {
+	static private <T> 
+	void merge(Node<T> h1, final Node<T> t1, final Node<T> h2, final Node<T> t2, final Comparator<T> comp) {
 		while(t1.next != h1 && t2.next != h2) {
 			if(comp.compare(h1.next.e, h2.next.e) > 0) { // insert at found position
 				final Node<T> unlinked = h2.next; // unlink from second list
@@ -388,81 +387,105 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 				if(t2.next == unlinked) // as tail is not a proper element from the list, it must be manually updated
 					t2.next = h2; // the new last element. Basically the second list was emptied
 			}
-			else { // keep looking for insert position			
-				h1 = h1.next;
-			}
+			h1 = h1.next;
 		}
-	}
-
-	public SinglyLinkedList<E> parallelSort() {
-		return parallelSort( 
-			new Comparator<E>() {					
-				 @SuppressWarnings({ "rawtypes", "unchecked" }) 
-				 @Override public int compare(final E o1, final E o2) {
-					 return ((Comparable)o1).compareTo(o2);
-				 }
-			}
-		);
 	}
 	
-	public SinglyLinkedList<E> parallelSort(final Comparator<E> compir) {
+	/**
+	 * Sorts the list using parallel merge algorithm
+	 * @param pooly fork join pool to use for task parallelisation
+	 * @param compir to order the elements
+	 * @return current list for method chaining
+	 */
+	public SinglyLinkedList<E> parallelSort(final ForkJoinPool pooly, final Comparator<E> compir) {
 		checkForComodification();
-		if(size() < MergeSorter.MIN_THRESHOLD || Runtime.getRuntime().availableProcessors() <= 1) {
-			return this.sort(compir);
-		}
-		ForkJoinPool pooly = new ForkJoinPool();
-		final int treshold = 1 + size() / ( 8 * Runtime.getRuntime().availableProcessors());
-		pooly.invoke(new MergeSorter<E>(this.head, this.tail, size(), compir, treshold));
+		final int threshold = 1 + size() / ( 8 * Runtime.getRuntime().availableProcessors());
+		doParallelSort(this.head, this.tail, size(), compir, Math.max(threshold, 256), pooly);		
 		incrementModCount();
+		return this;		
+	}
+
+	private Comparator<E> naturalOrder() {
+		return new Comparator<E>() {					
+			 @SuppressWarnings({ "rawtypes", "unchecked" }) 
+			 @Override public int compare(final E o1, final E o2) {
+				 return ((Comparable)o1).compareTo(o2);
+			 }
+		};
+	}
+	
+	/**
+	 * Sorts the list using parallel merge algorithm according 
+	 * to the natural order of the elements
+	 * @param pooly fork join pool to use for task parallelisation
+	 * @return current list for method chaining
+	 */
+	public SinglyLinkedList<E> parallelSort(final ForkJoinPool pooly) {
+		return parallelSort(pooly, naturalOrder());
+	}	
+	
+	/**
+	 * Sorts the list using parallel merge algorithm and a 
+	 * default {@link ForkJoinPool}
+	 * according the natural order of the elements, using 
+	 * 
+	 * @return current list for method chaining
+	 */
+	public SinglyLinkedList<E> parallelSort() {
+		return parallelSort(naturalOrder());
+	}
+	
+	/**
+	 * Sorts the list using parallel merge algorithm and
+	 * a default @link {@link ForkJoinPool}
+	 * @param compir to order the elements
+	 * @return current list for method chaining
+	 */	
+	public SinglyLinkedList<E> parallelSort(final Comparator<E> compir) {
+		ForkJoinPool pooly = new ForkJoinPool();
+		parallelSort(pooly, compir);
 		pooly.shutdown();
 		return this;		
 	}
 	
-	private class MergeSorter<T> extends java.util.concurrent.RecursiveAction {
-				
-		private static final long serialVersionUID = 1L;
-
-		private static final int MIN_THRESHOLD = 256; // as in java 8 Arrays.parallelSoft		
-		
-		private final int THRESHOLD;
-		
-		final Node<T> h; final Node<T> t; final int len; final Comparator<T> comp;
-				
-		MergeSorter(final Node<T> h, final Node<T> t, final int len, final Comparator<T> comp, final int treshold) {
-			this.h = h; this.t = t; this.len = len; this.comp = comp;
-			this.THRESHOLD = Math.max(MIN_THRESHOLD, treshold);
+	@SuppressWarnings("serial")
+	private static <T> void doParallelSort(final Node<T> h, final Node<T> t, final int len
+			                             , final Comparator<T> comp, final int THRESHOLD
+			                             , final ForkJoinPool pooly) {
+		if(len < THRESHOLD) {
+			mergeSort(h, t, len, comp);
 		}
-		
-		@Override
-		protected void compute() {
-			if(len > THRESHOLD) {
-				final Node<T> originalEnd = t.next.next; // in case this is a sublist, end() != head
-				final int m = len / 2;
-				// Detach list1 from list2 to divide and concur in parallel
-				// list1 requires a new tail and end , list2 a new head 
-				final Node<T> t1 = new Node<T>(null, findNodeBefore(h, m)); 
-				final Node<T> h2 = new Node<T>(null, t1.next.next);
-				t1.next.next = h; // the new end1, end() is always the head unless it's a sublist
-				t.next.next = h2; // and new end2 -	but the originalEnd accounts for the sublist case
-				invokeAll(new MergeSorter<T>(h, t1, m, comp, THRESHOLD)
-						, new MergeSorter<T>(h2, t, len - m, comp, THRESHOLD));
-				if(comp.compare(t1.next.e, h2.next.e) > 0) {
-					merge(h, t1, h2, t, comp);
+		else {
+			final Node<T> originalEnd = t.next.next; // in case this is a sublist, end() != head
+			final int m = len >>> 1;
+			// Detach list1 from list2 to divide and concur in parallel
+			// list1 requires a new tail and end , list2 a new head 
+			final Node<T> t1 = new Node<T>(null, findNodeBefore(h, m)); 
+			final Node<T> h2 = new Node<T>(null, t1.next.next);
+			t1.next.next = h; // the new end1, end() is always the head unless it's a sublist
+			t.next.next = h2; // and new end2 -	but the originalEnd accounts for the sublist case
+			final RecursiveAction right = new RecursiveAction() {
+				@Override protected void compute() {
+					doParallelSort(h, t1, m, comp, THRESHOLD, pooly);
 				}
-				if(t.next == h2) { //list2 is empty, just fix the tail
-					t.next = t1.next;
-				}
-				else { // re-attach list1 and list2
-					t1.next.next = h2.next;
-				}
-				t.next.next = originalEnd; // fix the end of the list
+			};
+			pooly.execute(right);
+			doParallelSort(h2, t, len - m, comp, THRESHOLD, pooly);
+			right.join();
+			//
+			if(comp.compare(t1.next.e, h2.next.e) > 0) {
+				merge(h, t1, h2, t, comp);
 			}
-			else {
-				mergeSort(h, t, len, comp);
+			if(t.next == h2) { //list2 is empty, just fix the tail
+				t.next = t1.next;
 			}
-		}		
+			else { // re-attach list1 and list2
+				t1.next.next = h2.next;
+			}
+			t.next.next = originalEnd; // fix the end of the list
+		}
 	}
-	
+		
 	/**
 	 * Appends the argument to the end of the list.
 	 * 
