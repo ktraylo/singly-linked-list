@@ -18,6 +18,7 @@ import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.RecursiveAction;
 
 /**
@@ -378,7 +379,7 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	// be designated as [head, tail] rather than [head, end)
 	static private <T> 
 	void merge(Node<T> h1, final Node<T> t1, final Node<T> h2, final Node<T> t2, final Comparator<T> comp) {
-		while(t1.next != h1 && t2.next != h2) {
+		for(; t1.next != h1 && t2.next != h2; h1 = h1.next) {
 			if(comp.compare(h1.next.e, h2.next.e) > 0) { // insert at found position
 				final Node<T> unlinked = h2.next; // unlink from second list
 				h2.next = unlinked.next;
@@ -386,8 +387,7 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 				h1.next = unlinked;
 				if(t2.next == unlinked) // as tail is not a proper element from the list, it must be manually updated
 					t2.next = h2; // the new last element. Basically the second list was emptied
-			}
-			h1 = h1.next;
+			}			
 		}
 	}
 	
@@ -397,10 +397,15 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	 * @param compir to order the elements
 	 * @return current list for method chaining
 	 */
+	@SuppressWarnings("serial")
 	public SinglyLinkedList<E> parallelSort(final ForkJoinPool pooly, final Comparator<E> compir) {
 		checkForComodification();
-		final int threshold = 1 + size() / ( 8 * Runtime.getRuntime().availableProcessors());
-		doParallelSort(this.head, this.tail, size(), compir, Math.max(threshold, 256), pooly);		
+		final int threshold = 1 + size() / ( 8 * Runtime.getRuntime().availableProcessors());	
+		pooly.invoke(new RecursiveAction() {
+			@Override protected void compute() {
+				doParallelSort(head, tail, size(), compir, Math.max(threshold, 256), pooly);
+			}
+		});
 		incrementModCount();
 		return this;		
 	}
@@ -470,8 +475,14 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 				}
 			};
 			pooly.execute(right);
-			doParallelSort(h2, t, len - m, comp, THRESHOLD, pooly);
-			right.join();
+			doParallelSort(h2, t, len - m, comp, THRESHOLD, pooly);			
+			if(right.tryUnfork()) {
+				//System.err.println("stolen");
+				doParallelSort(h, t1, m, comp, THRESHOLD, pooly);
+			} 
+			else{
+				right.join();
+			}
 			//
 			if(comp.compare(t1.next.e, h2.next.e) > 0) {
 				merge(h, t1, h2, t, comp);
