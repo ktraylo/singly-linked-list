@@ -18,7 +18,6 @@ import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.RecursiveAction;
 
 /**
@@ -37,8 +36,8 @@ import java.util.concurrent.RecursiveAction;
  * computation time, as indexing operations {@link #get(int)} and
  * {@link #set(int, Object)} always traverse from the beginning the list and
  * consume linear time. Therefore it is better to use implementation's
- * custom methods like {@link #reverse()} instead of 
- * {@link Collections#reverse(List)}.
+ * custom methods like {@link #reverse()} or {@link #sort()} instead of 
+ * {@link Collections#reverse(List)} and {@link Collections#sort(List)}.
  * <p>
  * Permits {@code null} elements.
  * <p>
@@ -82,7 +81,9 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	transient private final Node<E> head; // points to the first element in the list
 	transient private final Node<E> end;  // List's last element always points to 'end'. 
 	                                      // As the same implementation is used to implement sublists a
-										  // sentinel reference to hold the end of the list is required.
+										  // sentinel reference to hold the end of the list is required
+										  // thus inserting at the end of the sublist will also modify
+										  // accordingly the parent list.
 	
 	transient private final Node<E> tail; // points to the last element in the list to speed up operation "append"
 	transient private SinglyLinkedList<E> parent = this; // if this is a sublist, keeps a reference to the parent list
@@ -157,7 +158,7 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 		head = new Node<E>(null, null);
 		tail = new Node<E>(null, null);
 		end = head;		  
-		head.next = end;  // because begin() always points to the first and when list's empty begin() == end()
+		head.next = end;  // because begin() always points to the first and when list is empty begin() == end()
 		tail.next = head; // because teail.next == last() is always the node before the "end"	
 		size = 0;
 	}
@@ -324,19 +325,14 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 	 * <li>lg(n) recursion stack depth
 	 * <li>n * lg(n) running time
 	 * <p>
-	 * Assumption: {@code E implements Comparable>
+	 * Assumption: {@code E implements Comparable}
 	 * @param compir the comparator to order the elements
 	 * @return the sorted list for chaining
 	 * @throws ClassCastException when elements of the list
 	 * are not {@link Comparable}
 	 */
 	public SinglyLinkedList<E> sort() {
-		return sort( new Comparator<E>() {					
-						 @SuppressWarnings("unchecked") 
-						 @Override public int compare(final E o1, final E o2) {
-							 return ((Comparable)o1).compareTo(o2);
-						 }
-					 });
+		return sort(naturalOrder());
 	}
 
 	/**
@@ -370,13 +366,13 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 		}
 	}
 
+	// Merges the list [h2, t2] into [h1, t1].
 	// The last element of the first list is head element of the second, 
 	// and the first element of the second list is the end() element of the first list.
 	// The end() sentinel node cannot be used for end-of-list checks, 
 	// as during merging, the first element of the second list (the end() of the first list)
-	// can be merged somewhere into the first list, thus losing forever the sentinel 
-	// value / meaning. Therefore the lists must
-	// be designated as [head, tail] rather than [head, end)
+	// can be merged somewhere into the first list, thus destroying the sentinel invariant
+	// To avoid this the lists must be designated as [head, tail] rather than [head, end)
 	static private <T> 
 	void merge(Node<T> h1, final Node<T> t1, final Node<T> h2, final Node<T> t2, final Comparator<T> comp) {
 		for(; t1.next != h1 && t2.next != h2; h1 = h1.next) {
@@ -542,6 +538,8 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 			insertAfter = addNodeAfter(insertAfter, e);
 			hasChanged = true;
 		}
+		if(hasChanged)
+			incrementModCount();
 		return hasChanged;		
 	}
 	
@@ -557,8 +555,7 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 		checkForComodification();
 		return removeTheNodeAfter(findNodeBefore(head, index));
 	}	
-	
-	
+		
 	/**
      * Returns a forward only implementation of {@link ListIterator} over the 
      * elements in this list. 
