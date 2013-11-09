@@ -531,16 +531,15 @@ public final class SinglyLinkedList<E> extends AbstractSequentialList<E> impleme
 		return insertAllAfter(findNodeBefore(head, index), c);				
 	}
 	
-	private boolean insertAllAfter(Node<E> insertAfter, Collection<? extends E> c) {
-		boolean hasChanged = false;
+	private boolean insertAllAfter(final Node<E> insertAfter, Collection<? extends E> c) {
 		checkForComodification();
+		Node<E> n = insertAfter;
 		for(E e : c) {
-			insertAfter = addNodeAfter(insertAfter, e);
-			hasChanged = true;
+			n = addNodeAfter(n, e);
 		}
-		if(hasChanged)
+		if(n != insertAfter)
 			incrementModCount();
-		return hasChanged;		
+		return (n != insertAfter);
 	}
 	
 	/**
