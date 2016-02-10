@@ -1,0 +1,1 @@
+Implementation of a singly linked list. To compile use maven and Java 7
